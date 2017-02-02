@@ -1,0 +1,4 @@
+package graph_tools 0.0.1
+    now : contains EigenFactor calculation
+    near future : graph reduction
+
