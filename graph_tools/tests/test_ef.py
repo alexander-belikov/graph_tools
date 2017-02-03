@@ -1,11 +1,9 @@
-#TODO fix imports in test
 from unittest import TestCase, main
-from ..graph_tools.ef import calc_eigen_vec
-
+from ..ef import calc_eigen_vec
 from numpy import array, sum, float
 
 
-class TestTrim_data(TestCase):
+class TestEF(TestCase):
     a_vec = array([3, 2, 5, 1, 2, 1], dtype=float)
     a_vec_norm = a_vec / sum(a_vec)
     z_raw = array([

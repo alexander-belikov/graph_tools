@@ -3,7 +3,20 @@ from numpy import where, dot, sum
 
 
 def calc_eigen_vec(z, a, alpha=0.85, eps=1e-6):
-    # check that z is square, the shapes of a and z are compatible
+    """
+
+    :param z: np.array n x n
+        adjacency matrix for directed weighted edge graph
+    :param a: np.array
+        normalization vector
+    :param alpha: float
+
+    :param eps: float
+
+    :return:
+    """
+    # TODO: check that z is square, the shapes of a and z are compatible
+
     n = z.shape[0]
     fill_diagonal(z, 0)
     z_j = sum(z, axis=0)
@@ -16,18 +29,17 @@ def calc_eigen_vec(z, a, alpha=0.85, eps=1e-6):
     z_j_prime = z_j.copy()
     z_j_prime[z_j_prime == 0.] = 1.0
 
-    h = z / z_j_prime
-    pi_0 = ones(shape=z_j.shape) / n
-    h_prime = h.copy()
+    h = z/z_j_prime
+    pi_0 = ones(shape=z_j.shape)/n
+    # h_prime = h.copy()
 
-    mm = repeat(dangle_mask.reshape((1, n)), n, axis=0)
-    aa = repeat(a.reshape((n, 1)), n, axis=1)
-    h_prime = where(mm, aa, h)
+    # mm = repeat(dangle_mask.reshape((1, n)), n, axis=0)
+    # aa = repeat(a.reshape((n, 1)), n, axis=1)
+    # h_prime = where(mm, aa, h)
 
-    p = alpha * h_prime + (1 - alpha) * aa
+    # p = alpha * h_prime + (1 - alpha) * aa
 
     pi = pi_0.copy()
-    pi_next = pi_0.copy()
 
     norm = 1.0
     k = 0
