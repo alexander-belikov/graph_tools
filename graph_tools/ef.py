@@ -50,7 +50,7 @@ def calc_eigen_vec(z, a, alpha=0.85, eps=1e-6):
         #         print k, norm
         k += 1
         if norm > 1e1:
-            print 'norm is too high'
+            print('norm is too high')
             break
     ef_aux = dot(h, pi)
     ef = 1e2 * ef_aux / sum(ef_aux)
