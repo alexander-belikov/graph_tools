@@ -13,13 +13,13 @@ def read(fname):
 
 setup(
     name="graph_tools",
-    version="0.0.1",
+    version="0.0.2",
     author="Alexander Belikov",
     author_email="abelikov@gmail.com",
     description="tools reducing bipartite graphs and applying ranking algorithms",
     license="BSD",
     keywords="eigenfactor",
-    # url="git@github.com:alexander-belikov/datahelpers.git",
+    url="git@github.com:alexander-belikov/graph_tools.git",
     packages=['graph_tools'],
     long_description=read('README'),
     classifiers=[
@@ -28,6 +28,6 @@ setup(
         "License :: OSI Approved :: BSD License",
     ],
     install_requires=[
-        'numpy'
+        'numpy', 'pandas', 'networkx'
     ],
 )
