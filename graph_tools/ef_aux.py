@@ -1,6 +1,8 @@
 from numpy import random as rn
 import numpy as np
 import pandas as pd
+import networkx as nx
+from numpy.random import RandomState
 
 
 def transform_cite_dict(cite_dict):
@@ -10,7 +12,7 @@ def transform_cite_dict(cite_dict):
     :return: 2xN array, a[0] contains wA, a[1] contains wBs
     """
 
-    lens = map(lambda x: len(x), cite_dict.values())
+    lens = list(map(lambda y: len(y), cite_dict.values()))
     d1 = sum(lens)
     arr = np.ndarray((2, d1), dtype=int)
     cs1 = np.cumsum(lens)
@@ -55,32 +57,30 @@ def create_dummy_cdatas(cdata, k=5, jm=8):
     :return: list of cdatas
 
     from cdata list : [(w, j, w_refs_list)]
-    creates a list of k cdata-format dummy list (fake lists)
-     [[(w_, j_, w_refs_list_)]]
-    where w_ are taken from w_refs_list
-    and j_ are taken from j at random
+    creates a list of k cdata-format dummy lists [[(w_, j_, w_refs_list_)]]
+    where w_ are taken from w_refs_list and j_ are taken from j at random
     """
 
     from numpy.random import RandomState
-    wids_lists = map(lambda x: x[2], cdata)
+    wids_lists = list(map(lambda x: x[2], cdata))
     js_list = list(set(map(lambda x: x[1], cdata)))[:jm]
     wids_set = set([x for sublist in wids_lists for x in sublist])
     wids_list = list(wids_set)
     n = len(wids_set)
-    delta = n / k
+    delta = int(n / k)
     inds = [(i * delta, (i + 1) * delta) for i in range(k)]
 
     dummy_wids_lists = [wids_list[ind[0]:ind[1]] for ind in inds]
-    print(map(lambda x: len(x), dummy_wids_lists))
+    print(list(map(lambda x: len(x), dummy_wids_lists)))
 
     rns = RandomState()
     rns.randint(len(js_list))
     dummy_js_lists = [[js_list[rns.randint(len(js_list))] for i in range(ind[1] - ind[0])] for ind in inds]
     emptys = [[[] for i in range(ind[1] - ind[0])] for ind in inds]
 
-    print(map(lambda x: len(x), dummy_js_lists))
+    print(list(map(lambda x: len(x), dummy_js_lists)))
 
-    cdata_list = [zip(x[0], x[1], x[2]) for x in zip(dummy_wids_lists, dummy_js_lists, emptys)]
+    cdata_list = [list(zip(x[0], x[1], x[2])) for x in zip(dummy_wids_lists, dummy_js_lists, emptys)]
     return cdata_list
 
 
@@ -123,5 +123,19 @@ def extend_jj_df(sorted_js, df_agg):
     # no need to reindex df_adj, update() takes care of that
     df_tot.update(df_adj)
     df_tot = df_tot.fillna(0)
-    return df_tot
+    return df_adj, df_tot
 
+
+def generate_bigraph(types_pair, nodes_pair):
+    rns = RandomState(13)
+
+    sizes = list(map(lambda x: len(x), nodes_pair))
+    g = nx.Graph()
+    for t, nodes in zip(types_pair, nodes_pair):
+        g.add_nodes_from(map(lambda x: (t, x), nodes))
+
+    indices = rns.choice(sizes[0], sizes[1])
+    for k in range(sizes[1]):
+        g.add_edge((types_pair[0], nodes_pair[0][indices[k]]),
+                   (types_pair[1], nodes_pair[1][k]), {'weight': 1.0})
+    return g

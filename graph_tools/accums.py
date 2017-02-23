@@ -7,9 +7,10 @@ class EFcalculator(object):
         self.set_ws = set()
         # w^s -> w^i (wos id str to wos id int)
         self.foo_w = {}
+        # NB: journals issns are int(able) already
         # w^i -> j^i (wos id int to journal int)
         self.foo_wj = {}
-        # citation dict:
+        # citation dict map
         # w^i_a -> w^i_b (citations wos_id to wos_ids)
         self.foo_cite = {}
 
@@ -27,6 +28,9 @@ class EFcalculator(object):
                            in foo_wj_incoming.iteritems()}
         elif type(foo_wj_incoming) in (list, tuple):
             foo_wj_iter = {self.foo_w[x[0]]: x[1] for x in foo_wj_incoming}
+        else:
+            raise('Error in update_foo_wj')
+
         self.foo_wj.update(foo_wj_iter)
         print(len(self.foo_wj.keys()))
 
@@ -43,11 +47,14 @@ class EFcalculator(object):
         :param fill_ab:
         :return:
         """
+        # accumulate ids from acc tuple
         new_set_ws = set(map(lambda x: x[0], acc))
-
         self.update_foo_w(new_set_ws)
-        wj = map(lambda x: (x[0], x[1]), acc)
+        # update w^i -> j^i dict
+        wj = list(map(lambda x: (x[0], x[1]), acc))
         self.update_foo_wj(wj)
+
+        # update ids; update citations map with citations from acc
         if fill_ab:
             new_set_ws = set(x for ll in map(lambda x: x[2], acc) for x in ll)
             self.update_foo_w(new_set_ws)
