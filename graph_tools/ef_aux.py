@@ -119,15 +119,14 @@ def extend_jj_df(sorted_js, df_agg):
     df_tot = pd.DataFrame(np.nan, columns=sorted_js, index=sorted_js)
     df_agg2 = df_agg[['jA', 'jB']].groupby(['jA', 'jB']).apply(lambda x: x.shape[0])
     df_adj = df_agg2.reset_index().pivot('jA', 'jB', 0)
-    print(df_adj.shape)
     # no need to reindex df_adj, update() takes care of that
     df_tot.update(df_adj)
     df_tot = df_tot.fillna(0)
     return df_adj, df_tot
 
 
-def generate_bigraph(types_pair, nodes_pair):
-    rns = RandomState(13)
+def generate_bigraph(types_pair, nodes_pair, seed=13):
+    rns = RandomState(seed)
 
     sizes = list(map(lambda x: len(x), nodes_pair))
     g = nx.Graph()
