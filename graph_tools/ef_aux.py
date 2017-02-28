@@ -84,6 +84,42 @@ def create_dummy_cdatas(cdata, k=5, jm=8):
     return cdata_list
 
 
+def create_dummy_ajs(cdata, aj_data, k=5, jm=None):
+    """
+    test only
+
+    :param k: number of batches
+    :param cdata:  [(w, j, w_refs_list)]
+    :return: list of cdatas
+
+    from cdata list : [(w, j, w_refs_list)]
+    creates a list of k cdata-format dummy lists [[(w_, j_, w_refs_list_)]]
+    where w_ are taken from w_refs_list and j_ are taken from j at random
+    """
+
+    from numpy.random import RandomState
+    wids_lists = list(map(lambda x: x[1], cdata))
+    js_list = list(set(map(lambda x: x[1], aj_data)))[:jm]
+    wids_set = set([x for sublist in wids_lists for x in sublist])
+    wids_list = list(wids_set)
+    n = len(wids_set)
+    delta = int(n / k)
+    inds = [(i * delta, (i + 1) * delta) for i in range(k)]
+
+    dummy_wids_lists = [wids_list[ind[0]:ind[1]] for ind in inds]
+    print(list(map(lambda x: len(x), dummy_wids_lists)))
+
+    rns = RandomState()
+    rns.randint(len(js_list))
+    dummy_js_lists = [[js_list[rns.randint(len(js_list))] for i in range(ind[1] - ind[0])] for ind in inds]
+
+    print(list(map(lambda x: len(x), dummy_js_lists)))
+
+    aj_list = [list(zip(x[0], x[1])) for x in zip(dummy_wids_lists, dummy_js_lists)]
+    return aj_list
+
+
+
 def create_adj_df(df_cite, df_wj):
     """
     df_cite: df with 'wA' and 'wB' columns
