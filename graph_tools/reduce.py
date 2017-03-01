@@ -42,12 +42,12 @@ def reduce_bigraphs(ga, gb, out_labels=None, ga_labels=None, gb_labels=None):
         gb_types = set([item[0] for item in gb.nodes()])
     except:
         logging.error(' in reduce_bigraphs() : ga or gb are not typified '
-              '(nodes should be tuples, e.g. (type, value))')
+                      '(nodes should be tuples, e.g. (type, value))')
         raise
 
     if len(ga_types) != 2 or len(gb_types) != 2:
         logging.error(' in reduce_bigraphs() : one of the graphs '
-              'is not bipartite')
+                      'is not bipartite')
         raise
 
     if not ga_labels and not gb_labels:
@@ -57,7 +57,7 @@ def reduce_bigraphs(ga, gb, out_labels=None, ga_labels=None, gb_labels=None):
             b = list(gb_types - ga_types)[0]
         except:
             logging.error(' in reduce_bigraphs() : ga and gb '
-                  'do not share a type')
+                          'do not share a type')
             raise
 
     if out_labels:
@@ -106,3 +106,10 @@ def update_edges(ga, gb):
         else:
             ga.add_edge(e[0], e[1], {'weight': gb[e[0]][e[1]]['weight']})
     return ga
+
+
+def describe_graph(g):
+    g_nodes = g.nodes()
+    g_types = list(set(map(lambda x: x[0], g_nodes)))
+    r_list = list(map(lambda y: (len(list(filter(lambda x: x[0] == y, g_nodes))), y), g_types))
+    return r_list
