@@ -59,6 +59,6 @@ def calc_eigen_vec(z, a, alpha=0.85, eps=1e-6):
     a_prime = a.copy()
     zero_mask = (a == 0.)
     a_prime[zero_mask] = 1.0
-    af = 0.01 * ef / a_prime
+    ai = 0.01 * ef / a_prime
     #     return h_prime, dangle_mask, mm, h, aa, dangle_vec, pi, pi_0
-    return ef, af
+    return ef, ai
