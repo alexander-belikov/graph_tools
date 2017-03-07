@@ -114,5 +114,5 @@ def describe_graph(g):
     g_types = list(set(map(lambda x: x[0], g_nodes)))
     response += ' node types: {0} '.format(' '.join(map(str, g_types)))
     r_list = list(map(lambda y: (len(list(filter(lambda x: x[0] == y, g_nodes))), y), g_types))
-    response += 'node type populations '.format(' '.join(map(str, r_list)))
+    response += 'node type populations: {0} '.format(' '.join(map(str, r_list)))
     return response
