@@ -119,7 +119,6 @@ def create_dummy_ajs(cdata, aj_data, k=5, jm=None):
     return aj_list
 
 
-
 def create_adj_df(df_cite, df_wj):
     """
     df_cite: df with 'wA' and 'wB' columns
