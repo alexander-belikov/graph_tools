@@ -115,5 +115,6 @@ def describe_graph(g):
     r_list = list(map(lambda y: len(list(filter(lambda x: x[0] == y, g_nodes))), g_types))
     pairs = zip(g_types, r_list)
     pairs_to_str = map(lambda x: 'type {0}: {1}'.format(x[0], x[1]), pairs)
-    response += ' description : {0}'.format('; '.join(pairs_to_str))
+    nodes_msg = 'edges : {0}'.format(len(g.edges()))
+    response += ' description : {0}. {1}'.format('; '.join(pairs_to_str), nodes_msg)
     return response
