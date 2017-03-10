@@ -23,12 +23,14 @@ def transform_cite_dict(cite_dict):
     return arr
 
 
-def create_dummy_journals(df_cite, df_wj):
+def create_dummy_journals(df_cite, df_wj, seed=13):
     """
     test only
     df_cite: df with 'wA' and 'wB' columns
     df_wj: df with 'w' and 'j' columns
     """
+
+    rns = rn.RandomState(seed)
 
     wBs = df_cite['wB'].unique()
     ws = df_wj['w'].unique()
@@ -36,7 +38,6 @@ def create_dummy_journals(df_cite, df_wj):
     print('unique journals:', len(df_wj['j'].unique()))
     js = df_wj['j'].unique()
 
-    rns = rn.RandomState()
     n = 8
     j_inds = [rns.randint(n) for i in range(len(outstanding_wBs))]
 
