@@ -2,6 +2,14 @@ from networkx import DiGraph, Graph
 from numpy import array, dot
 import logging
 
+
+def project_to_nodes(g, nodes):
+    h = Graph()
+    edges = g.edges(nodes)
+    h.add_edges_from(edges)
+    return h
+
+
 def reduce_digraphs(ga, gb):
     """
     ga : a -> r, DiGraph
