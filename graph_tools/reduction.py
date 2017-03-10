@@ -5,7 +5,7 @@ import logging
 
 def project_to_nodes(g, nodes):
     h = Graph()
-    edges = g.edges(nodes)
+    edges = g.edges(nodes, data=True)
     h.add_edges_from(edges)
     return h
 
