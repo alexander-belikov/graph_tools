@@ -12,7 +12,7 @@ def transform_cite_dict(cite_dict):
     :return: 2xN array, a[0] contains wA, a[1] contains wBs
     """
 
-    lens = list(map(lambda y: len(y), cite_dict.values()))
+    lens = list(map(lambda z: len(z), cite_dict.values()))
     d1 = sum(lens)
     arr = np.ndarray((2, d1), dtype=int)
     cs1 = np.cumsum(lens)
@@ -49,7 +49,7 @@ def create_dummy_journals(df_cite, df_wj, seed=13):
     return df_wj_full
 
 
-def create_dummy_cdatas(cdata, k=5, jm=8):
+def create_dummy_cdatas(cdata, k=5, jm=8, seed=13):
     """
     test only
 
@@ -74,7 +74,7 @@ def create_dummy_cdatas(cdata, k=5, jm=8):
     dummy_wids_lists = [wids_list[ind[0]:ind[1]] for ind in inds]
     print(list(map(lambda x: len(x), dummy_wids_lists)))
 
-    rns = RandomState()
+    rns = RandomState(seed)
     rns.randint(len(js_list))
     dummy_js_lists = [[js_list[rns.randint(len(js_list))] for i in range(ind[1] - ind[0])] for ind in inds]
     emptys = [[[] for i in range(ind[1] - ind[0])] for ind in inds]
@@ -85,7 +85,7 @@ def create_dummy_cdatas(cdata, k=5, jm=8):
     return cdata_list
 
 
-def create_dummy_ajs(cdata, aj_data, k=5, jm=None):
+def create_dummy_ajs(cdata, aj_data, k=5, jm=None, seed=13):
     """
     test only
 
@@ -110,7 +110,7 @@ def create_dummy_ajs(cdata, aj_data, k=5, jm=None):
     dummy_wids_lists = [wids_list[ind[0]:ind[1]] for ind in inds]
     print(list(map(lambda x: len(x), dummy_wids_lists)))
 
-    rns = RandomState()
+    rns = RandomState(seed)
     rns.randint(len(js_list))
     dummy_js_lists = [[js_list[rns.randint(len(js_list))] for i in range(ind[1] - ind[0])] for ind in inds]
 
