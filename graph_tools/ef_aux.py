@@ -161,7 +161,7 @@ def extend_jj_df(sorted_js, df_agg):
     return df_adj, df_tot
 
 
-def generate_bigraph(types_pair, nodes_pair, seed=13):
+def generate_bigraph_inv_foo_injection(types_pair, nodes_pair, seed=13):
     rns = RandomState(seed)
 
     sizes = list(map(lambda x: len(x), nodes_pair))
@@ -173,4 +173,28 @@ def generate_bigraph(types_pair, nodes_pair, seed=13):
     for k in range(sizes[1]):
         g.add_edge((types_pair[0], nodes_pair[0][indices[k]]),
                    (types_pair[1], nodes_pair[1][k]), {'weight': 1.0})
+    return g
+
+
+def create_bigraph(properties_a, properties_b, l=None, seed=13):
+    from numpy.random import RandomState
+    rns = RandomState(seed)
+    name_a, n = properties_a
+    name_b, m = properties_b
+    print(n, m)
+    g = nx.Graph()
+    for i in range(n):
+        g.add_edge((name_a, i), (name_b, rns.randint(m)), {'weight': 0.5})
+    for i in range(m):
+        g.add_edge((name_a, rns.randint(n)), (name_b, i), {'weight': 5.0})
+
+    if l:
+        if l > n * m:
+            raise ValueError('l value greater than n * m')
+
+        extra_edges = l - g.number_of_edges()
+        print(extra_edges)
+        if extra_edges > 0:
+            for i in range(extra_edges):
+                g.add_edge((name_a, rns.randint(n)), (name_b, rns.randint(m)), {'weight': 2.0})
     return g
