@@ -1,4 +1,4 @@
-from networkx import DiGraph, Graph
+from networkx import DiGraph, Graph, to_pandas_dataframe
 from numpy import array, dot
 import logging
 
@@ -126,3 +126,21 @@ def describe_graph(g):
     nodes_msg = 'edges : {0}'.format(len(g.edges()))
     response += ' description : {0}. {1}'.format('; '.join(pairs_to_str), nodes_msg)
     return response
+
+
+def project_graph_return_adj(g, nodes, transpose=False):
+    """
+
+    :param g:
+    :param nodes:
+    :param transpose:
+    :return:
+    NB: nodes should be sorted in most cases
+    """
+    projection = project_to_nodes(g, nodes)
+    adj_ = to_pandas_dataframe(projection)
+    columns = sorted(list(filter(lambda x: x[0] != nodes[0][0], adj_.columns)), key=lambda x: x[1])
+    adj = adj_.loc[nodes, columns]
+    if transpose:
+        adj = adj.T
+    return adj
