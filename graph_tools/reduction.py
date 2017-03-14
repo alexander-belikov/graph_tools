@@ -108,12 +108,12 @@ def reduce_bigraphs(ga, gb, out_labels=None, ga_labels=None, gb_labels=None):
 
 
 def update_edges(ga, gb):
-    for e in gb.edges():
-        if e in ga.edges():
-            ga[e[0]][e[1]]['weight'] += gb[e[0]][e[1]]['weight']
+    for e in gb.edges(data=True):
+        u, v, w = e
+        if ga.has_edge(u, v):
+            ga[u][v]['weight'] += w['weight']
         else:
-            ga.add_edge(e[0], e[1], {'weight': gb[e[0]][e[1]]['weight']})
-    return ga
+            ga.add_edge(u, v, w)
 
 
 def describe_graph(g):
