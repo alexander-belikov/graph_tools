@@ -1,4 +1,4 @@
-from networkx import DiGraph, Graph, to_pandas_dataframe
+from networkx import DiGraph, Graph, from_pandas_adjacency
 from numpy import array, dot
 import logging
 
@@ -138,7 +138,7 @@ def project_graph_return_adj(g, nodes, transpose=False):
     NB: nodes should be sorted in most cases
     """
     projection = project_to_nodes(g, nodes)
-    adj_ = to_pandas_dataframe(projection)
+    adj_ = from_pandas_adjacency(projection)
     columns = sorted(list(filter(lambda x: x[0] != nodes[0][0], adj_.columns)), key=lambda x: x[1])
     adj = adj_.loc[nodes, columns]
     if transpose:
