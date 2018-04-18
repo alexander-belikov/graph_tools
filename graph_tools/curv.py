@@ -233,8 +233,22 @@ def remove_edge(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1, v
     return gn, paths_new, dists_new, new_edges_curv_sorted
 
 
-def reduce_graph(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1, number_removed=1,
-                 verbose=False):
+def reduce_graph(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1,
+                 mode='both', max_components=None, n_components=1, verbose=False):
+    """
+
+    :param gn:
+    :param paths:
+    :param dists:
+    :param edges_curv_sorted:
+    :param alpha:
+    :param n_processes:
+    :param mode: 'both', 'boundary' or 'curvature'
+    :param max_components:
+    :param n_components:
+    :param verbose:
+    :return:
+    """
 
     number_negative_edges = sum([x[1] < 0 for x in edges_curv_sorted])
 
@@ -242,10 +256,21 @@ def reduce_graph(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1, 
     g_bnd = gn.subgraph(bnd)
     n_connected_bnd = number_connected_components(g_bnd)
 
-    if number_negative_edges >= 0 and n_connected_bnd > 1:
+    if mode == 'curvature':
+        split_condition = (number_negative_edges >= 0)
+    elif mode == 'boundary':
+        split_condition = (n_connected_bnd > 1)
+    else:
+        # split_condition = (number_negative_edges >= 0) and (n_connected_bnd > 1)
+        split_condition = (number_negative_edges >= 0) or (n_connected_bnd > 1)
+
+    # if max_components and n_components <= max_components:
+    if (max_components and n_components < max_components) and split_condition:
         number_edges_removed = 0
         removed_edges = []
-        while number_connected_components(gn) == 1 and number_edges_removed <= number_negative_edges:
+        while edges_curv_sorted \
+                and number_connected_components(gn) == 1 \
+                and number_edges_removed <= number_negative_edges:
             current_edge = edges_curv_sorted.pop(0)
             gn.remove_edge(*current_edge[0])
             removed_edges += [current_edge[0]]
@@ -269,8 +294,10 @@ def reduce_graph(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1, 
             pp_b2, dd_b2, cc_b2 = update_paths_on_subgraph(gb, pp_b, dd_b, cc_b, removed_edges)
             gb = Graph(gb)
 
-            gn_list_a = reduce_graph(ga, pp_a2, dd_a2, cc_a2, alpha, n_processes, number_removed, verbose)
-            gn_list_b = reduce_graph(gb, pp_b2, dd_b2, cc_b2, alpha, n_processes, number_removed, verbose)
+            gn_list_a = reduce_graph(ga, pp_a2, dd_a2, cc_a2, alpha, n_processes, mode,
+                                     max_components, n_components+1, verbose)
+            gn_list_b = reduce_graph(gb, pp_b2, dd_b2, cc_b2, alpha, n_processes, mode,
+                                     max_components, n_components+1, verbose)
             return [*gn_list_a, *gn_list_b]
         else:
             return [gn]
