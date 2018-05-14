@@ -1,6 +1,6 @@
 from numpy import array, sum, ones, multiply, append, all
 from networkx import dijkstra_path_length, all_pairs_dijkstra_path_length, Graph
-from networkx import dijkstra_path, number_connected_components, connected_components
+from networkx import dijkstra_path, number_connected_components, connected_components, all_pairs_dijkstra_path
 from cvxpy import Variable, Problem, Minimize, sum_entries, mul_elemwise
 import pathos.multiprocessing as mp
 from functools import partial
@@ -94,8 +94,11 @@ def compute_graph_curv(g, edges=None, dict_dist=None, alpha=0.0, n_processes=1, 
     if not edges:
         edges = g.edges()
 
-    with mp.Pool(n_processes) as p:
-        curvs = array(p.map(func, edges))
+    if n_processes and n_processes > 1:
+        with mp.Pool(n_processes) as p:
+            curvs = array(p.map(func, edges))
+    else:
+        curvs = array([func(x) for x in edges])
 
     edges_curv_sorted = sorted(list(zip(edges, curvs)), key=lambda x: x[1])
     return curvs
@@ -118,6 +121,29 @@ def compute_boundary(g, ddist):
             if all(cur_dist >= nei_dists):
                 bnd_nodes.append(jnode)
     return bnd_nodes
+
+
+def compute_nnns_paths(g, verbose=False):
+    set_nn_paths = set()
+    if verbose:
+        n_nodes = len(g.nodes())
+        n_ed_max = n_nodes*(n_nodes - 1) // 2
+        print(n_nodes, len(g.edges()), n_ed_max)
+    for e in g.nodes():
+        ns = g.neighbors(e)
+        set_nn_paths.update([(e, v) for v in ns])
+        for n in g.neighbors(e):
+            nns = g.neighbors(n)
+            set_nn_paths.update([(e, v) for v in nns])
+            for nn in g.neighbors(n):
+                nnns = g.neighbors(nn)
+                set_nn_paths.update([(e, v) for v in nnns])
+
+    set_final = set()
+    for p in iter(set_nn_paths):
+        if p[0] < p[1]:
+            set_final.update([p])
+    return set_final
 
 
 def subpath_in_path(path, subpath, directed=False):
@@ -233,8 +259,34 @@ def remove_edge(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1, v
     return gn, paths_new, dists_new, new_edges_curv_sorted
 
 
+def trim_negative_edges_from_graph(g, curvs, alpha, n_proc=1, verbose=False):
+    # takes a connected graph and deletes negative curvature edges
+    # until either there are two connected components or there are no negative edges
+    gn = g.copy()
+    edges_curv_sorted = sorted(list(zip(gn.edges(), curvs)), key=lambda x: x[1])
+    number_negative_edges = sum([x[1] < 0 for x in edges_curv_sorted])
+    nc = 1
+    if number_negative_edges > 0:
+        number_edges_removed = 0
+        while edges_curv_sorted \
+                and nc == 1 \
+                and number_edges_removed <= number_negative_edges:
+            current_edge = edges_curv_sorted.pop(0)
+            gn.remove_edge(*current_edge[0])
+            number_edges_removed += 1
+            nc = number_connected_components(gn)
+        if nc > 1:
+            return True, gn
+        else:
+            dists = dict(all_pairs_dijkstra_path_length(gn))
+            curvs = compute_graph_curv(gn, None, dists, alpha, n_proc, None)
+            return trim_negative_edges_from_graph(gn, curvs, alpha, n_proc, verbose)
+    else:
+        return False, gn
+
+
 def reduce_graph(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1,
-                 mode='both', max_components=None, n_components=1, verbose=False):
+                 mode='both', max_components=None, n_components=1, verbose=True):
     """
 
     :param gn:
@@ -264,8 +316,7 @@ def reduce_graph(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1,
         # split_condition = (number_negative_edges >= 0) and (n_connected_bnd > 1)
         split_condition = (number_negative_edges >= 0) or (n_connected_bnd > 1)
 
-    # if max_components and n_components <= max_components:
-    if (max_components and n_components < max_components) and split_condition:
+    if (not max_components or (max_components and n_components < max_components)) and split_condition:
         number_edges_removed = 0
         removed_edges = []
         while edges_curv_sorted \
@@ -301,5 +352,47 @@ def reduce_graph(gn, paths, dists, edges_curv_sorted, alpha=0.0, n_processes=1,
             return [*gn_list_a, *gn_list_b]
         else:
             return [gn]
+    else:
+        return [gn]
+
+
+def reduce_graph_simple(gn, dists=None, curvs=None, alpha=0.0, n_processes=1,
+                        mode='curvature', max_components=None, n_components=1, verbose=True):
+    """
+
+    :param gn:
+    :param dists:
+    :param curvs:
+    :param alpha:
+    :param n_processes:
+    :param mode: 'both', 'boundary' or 'curvature'
+    :param max_components:
+    :param n_components:
+    :param verbose:
+    :return:
+    """
+
+    gn = gn.copy()
+    if not dists:
+        dists = dict(all_pairs_dijkstra_path_length(gn))
+    if not curvs:
+        curvs = compute_graph_curv(gn, None, dists, alpha, n_processes, None)
+    # edges_curv_sorted = sorted(list(zip(gn.edges(), curvs)), key=lambda x: x[1])
+    # number_negative_edges = sum([x[1] < 0 for x in edges_curv_sorted])
+    # if verbose:
+    #     print('negative_edges: {0}'.format(number_negative_edges))
+    #
+    # split_condition = (number_negative_edges > 0)
+    #
+    # if (not max_components or (max_components and n_components < max_components)) and split_condition:
+    flag, gn = trim_negative_edges_from_graph(gn, curvs, alpha, n_processes, curvs)
+    if flag:
+        cc_g = list(connected_components(gn))
+        ga, gb = gn.subgraph(cc_g[0]), gn.subgraph(cc_g[1])
+        gn_list_a = reduce_graph_simple(ga, None, None, alpha, n_processes, mode,
+                                        max_components, n_components + 1, verbose)
+        gn_list_b = reduce_graph_simple(gb, None, None, alpha, n_processes, mode,
+                                        max_components, n_components + 1, verbose)
+        return [*gn_list_a, *gn_list_b]
     else:
         return [gn]
