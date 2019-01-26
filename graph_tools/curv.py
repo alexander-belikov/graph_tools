@@ -1,7 +1,9 @@
 from numpy import array, sum, ones, multiply, append, all
 from networkx import dijkstra_path_length, all_pairs_dijkstra_path_length, is_tree, Graph
 from networkx import dijkstra_path, number_connected_components, connected_components, all_pairs_dijkstra_path
-from cvxpy import Variable, Problem, Minimize, sum_entries, mul_elemwise
+from cvxpy import Variable, Problem, Minimize
+from cvxpy.lin_ops.lin_utils import sum_entries, multiply
+# from cvxpy.lin_ops.lin_op import sum_entries
 import pathos.multiprocessing as mp
 from functools import partial
 
@@ -69,7 +71,7 @@ def compute_edge_curv(edge, g, alpha=0.0, dist_global=None, mode=None, verbose=F
 
     plan = Variable(len(x_nei_ext), len(y_nei_ext))
     m_trans = multiply(mx[:, None], dist)
-    obj = Minimize(sum_entries(mul_elemwise(m_trans, plan)))
+    obj = Minimize(sum_entries(multiply(m_trans, plan)))
     plan_i = sum_entries(plan, axis=1)
     my_constraints = (mx*plan).T
     if verbose:

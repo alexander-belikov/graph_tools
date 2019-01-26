@@ -56,7 +56,7 @@ def reduce_bigraphs(ga, gb, out_labels=None, ga_labels=None, gb_labels=None):
     if len(ga_types) != 2 or len(gb_types) != 2:
         logging.error(' in reduce_bigraphs() : one of the graphs '
                       'is not bipartite')
-        raise
+        raise ValueError(' in reduce_bigraphs() : one of the graphs is not bipartite')
 
     if not ga_labels and not gb_labels:
         try:
