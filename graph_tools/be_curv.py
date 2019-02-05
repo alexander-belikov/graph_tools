@@ -85,13 +85,16 @@ def compute_node_be_curvature(g, n=None, distances=None, verbose=True):
         gammax[0, range(1, one_dim)] = -1.
         gammax[range(1, one_dim), 0] = -1.
 
-        x = Variable()
-        objective = Minimize(norm(dgamma2 + x * gammax))
-        constraints = []
-        prob = Problem(objective, constraints)
-
-        curv_value = prob.solve()
-        r = {n: curv_value}
+        # print()
+        # r = {n: np.min(np.linalg.eig(dgamma2 - 1.0*gammax))}
+        return dgamma2, gammax
+        # x = Variable()
+        # objective = Minimize(norm(dgamma2 + x * gammax))
+        # constraints = []
+        # prob = Problem(objective, constraints)
+        #
+        # curv_value = prob.solve()
+        # r = {n: curv_value}
     else:
         r = {n: compute_node_be_curvature(g, n, distances) for n in g.nodes()}
     return r
