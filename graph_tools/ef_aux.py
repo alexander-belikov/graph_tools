@@ -198,3 +198,4 @@ def create_bigraph(properties_a, properties_b, l=None, seed=13):
             for i in range(extra_edges):
                 g.add_edge((name_a, rns.randint(n)), (name_b, rns.randint(m)), {'weight': 2.0})
     return g
+
