@@ -110,36 +110,40 @@ def construct_gammax(g, n):
 
 def compute_node_be_curvature(g, n=None, solver=None, solver_options={}, verbose=False):
     if n is not None:
-        dgamma2 = construct_dgamma2(g, n, verbose)
-        gammax = construct_gammax(g, n)
+        if g.degree[n] > 0:
+            dgamma2 = construct_dgamma2(g, n, verbose)
+            gammax = construct_gammax(g, n)
 
-        #extend dimension of gammax to b2
-        dim_b1 = gammax.shape[0]
-        dim_b2 = dgamma2.shape[0]
-        dim_s2 = dgamma2.shape[0] - gammax.shape[0]
-        if verbose:
-            print('dim dgamma2 {0}; dim gammax {1}'.format(dim_b2, dim_b1))
+            #extend dimension of gammax to b2
+            dim_b1 = gammax.shape[0]
+            dim_b2 = dgamma2.shape[0]
+            dim_s2 = dgamma2.shape[0] - gammax.shape[0]
 
-        gammax_ext = np.block([
-            [gammax, np.zeros((dim_b1, dim_s2))],
-            [np.zeros((dim_b1, dim_s2)).T, np.zeros((dim_s2, dim_s2))],
-        ])
+            if verbose:
+                print('dim dgamma2 {0}; dim gammax {1}'.format(dim_b2, dim_b1))
 
-        a = Parameter((dim_b2, dim_b2), value=dgamma2)
-        b = Parameter((dim_b2, dim_b2), value=gammax_ext)
-        kappa = Variable()
-        constraints = [(a - kappa * b >> 0)]
+            gammax_ext = np.block([
+                [gammax, np.zeros((dim_b1, dim_s2))],
+                [np.zeros((dim_b1, dim_s2)).T, np.zeros((dim_s2, dim_s2))],
+            ])
 
-        objective = Maximize(kappa)
-        prob = Problem(objective, constraints)
-        if verbose:
-            print(prob.status)
-        prob.solve(solver=solver, **solver_options)
-        if verbose:
-            print(prob.status)
-        return prob.value
+            a = Parameter((dim_b2, dim_b2), value=dgamma2)
+            b = Parameter((dim_b2, dim_b2), value=gammax_ext)
+            kappa = Variable()
+            constraints = [(a - kappa * b >> 0)]
+
+            objective = Maximize(kappa)
+            prob = Problem(objective, constraints)
+            if verbose:
+                print(prob.status)
+            prob.solve(solver=solver, **solver_options)
+            if verbose:
+                print(prob.status)
+            return prob.value
+        else:
+            return 0
     else:
-        r = {n: compute_node_be_curvature(g, n, solver=solver, solver_options=solver_options) for n in g.nodes()}
+        r = {n: compute_node_be_curvature(g, n, solver=solver, solver_options=solver_options, verbose=verbose) for n in g.nodes()}
     return r
 
 
