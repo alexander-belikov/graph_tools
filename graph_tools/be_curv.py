@@ -2,7 +2,8 @@ import networkx as nx
 from cvxpy import Variable, Problem, Maximize, Parameter
 import numpy as np
 
-# networkx/cvxpy based implementation of Barky-Emery curvature calculation
+# networkx/cvxpy based implementation of Bakry-Emery curvature calculation
+
 
 def construct_dgamma2(g, n, verbose=False):
     if n is not None:
@@ -58,7 +59,7 @@ def construct_dgamma2(g, n, verbose=False):
         gamma_s1s1[range(len(s1)), range(len(s1))] = diag
 
         if verbose:
-            print('4 gamma2 S1S1')
+            print('4gamma2 S1S1')
             print(gamma_s1s1)
 
         dz_minus = [len([nn for nn in g.neighbors(n_) if nn in s1]) for n_ in s2]
@@ -93,7 +94,7 @@ def construct_dgamma2(g, n, verbose=False):
     return dgamma2
 
 
-def construct_gammax(g, n, verbose=False):
+def construct_gammax(g, n):
     dx = g.degree[n]
     dim_b1 = 1 + dx
     gammax = np.zeros((dim_b1, dim_b1))
@@ -107,7 +108,7 @@ def construct_gammax(g, n, verbose=False):
     return gammax
 
 
-def compute_node_be_curvature(g, n=None, distances=None, verbose=True):
+def compute_node_be_curvature(g, n=None, solver=None, solver_options={}, verbose=False):
     if n is not None:
         dgamma2 = construct_dgamma2(g, n, verbose)
         gammax = construct_gammax(g, n)
@@ -116,6 +117,9 @@ def compute_node_be_curvature(g, n=None, distances=None, verbose=True):
         dim_b1 = gammax.shape[0]
         dim_b2 = dgamma2.shape[0]
         dim_s2 = dgamma2.shape[0] - gammax.shape[0]
+        if verbose:
+            print('dim dgamma2 {0}; dim gammax {1}'.format(dim_b2, dim_b1))
+
         gammax_ext = np.block([
             [gammax, np.zeros((dim_b1, dim_s2))],
             [np.zeros((dim_b1, dim_s2)).T, np.zeros((dim_s2, dim_s2))],
@@ -128,10 +132,14 @@ def compute_node_be_curvature(g, n=None, distances=None, verbose=True):
 
         objective = Maximize(kappa)
         prob = Problem(objective, constraints)
-        prob.solve()
+        if verbose:
+            print(prob.status)
+        prob.solve(solver=solver, **solver_options)
+        if verbose:
+            print(prob.status)
         return prob.value
     else:
-        r = {n: compute_node_be_curvature(g, n, distances) for n in g.nodes()}
+        r = {n: compute_node_be_curvature(g, n, solver=solver, solver_options=solver_options) for n in g.nodes()}
     return r
 
 

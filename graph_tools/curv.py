@@ -1,14 +1,14 @@
-from numpy import array, sum, ones, multiply, append, all
+from numpy import array, sum, append, all
+import numpy as np
 from networkx import dijkstra_path_length, all_pairs_dijkstra_path_length, is_tree, Graph
 from networkx import dijkstra_path, number_connected_components, connected_components, all_pairs_dijkstra_path
-from cvxpy import Variable, Problem, Minimize
-from cvxpy.lin_ops.lin_utils import sum_entries, multiply
-# from cvxpy.lin_ops.lin_op import sum_entries
+from cvxpy import Variable, Parameter, Minimize, Problem
+from cvxpy import multiply as cvx_mul
+from cvxpy import sum as cvx_sum
 import pathos.multiprocessing as mp
 from functools import partial
 
-# Ollivier Ricci Graph curvature
-
+# networkx/cvxpy based implementation of Ollivier Ricci curvature calculation
 
 def compute_measure(g, x, x_nei, alpha, mode='weight'):
     """
@@ -26,7 +26,8 @@ def compute_measure(g, x, x_nei, alpha, mode='weight'):
     return mx
 
 
-def compute_edge_curv(edge, g, alpha=0.0, dist_global=None, mode=None, verbose=False):
+def compute_edge_curv(edge, g, alpha=0.0, dist_global=None, mode=None,
+                      solver=None, solver_options={}, verbose=False):
     """
     a weighted version inspired by https://github.com/saibalmars/GraphRicciCurvature
 
@@ -35,13 +36,15 @@ def compute_edge_curv(edge, g, alpha=0.0, dist_global=None, mode=None, verbose=F
     :param alpha:
     :param dist_global:
     :param mode:
+    :param solver:
+    :param solver_options:
     :param verbose:
     :return:
     """
 
     x, y = edge
     if x == y:
-        raise ValueError('x == y')
+        return 1
 
     x_nei = list(g[x].keys())
     y_nei = list(g[y].keys())
@@ -69,29 +72,28 @@ def compute_edge_curv(edge, g, alpha=0.0, dist_global=None, mode=None, verbose=F
         print(mx.shape, my.shape, dist.shape)
         print(mx, my)
 
-    plan = Variable(len(x_nei_ext), len(y_nei_ext))
-    m_trans = multiply(mx[:, None], dist)
-    obj = Minimize(sum_entries(multiply(m_trans, plan)))
-    plan_i = sum_entries(plan, axis=1)
-    my_constraints = (mx*plan).T
-    if verbose:
-        print(my_constraints.size)
-    constraints = [my_constraints == my,
-                   plan >= 0,
-                   plan <= 1,
-                   plan_i == ones(len(x_nei_ext))[:, None]]
+    plan = Variable((len(x_nei_ext), len(y_nei_ext)))
+    mx_trans = mx.reshape(-1, 1)*dist
+    mu_trans_param = Parameter(mx_trans.shape, value=mx_trans)
+    obj = Minimize(cvx_sum(cvx_mul(plan, mu_trans_param)))
+    plan_i = cvx_sum(plan, axis=1)
+    my_constraint = mx * plan
+    constraints = [my_constraint == my,
+                   plan >= 0, plan <= 1,
+                   plan_i == np.ones(len(x_nei_ext))]
     problem = Problem(obj, constraints)
-    wd = problem.solve()
-    curv = 1. - wd/dist_global[x][y]
-    # perhaps assign curv as an attribute to an edge?
+    wd = problem.solve(solver=solver, **solver_options)
+    curv = 1. - wd/dist[-1, -1]
     return curv
 
 
-def compute_graph_curv(g, edges=None, dict_dist=None, alpha=0.0, n_processes=1, mode=None):
+def compute_graph_curv(g, edges=None, dict_dist=None, alpha=0.0, n_processes=1, mode=None,
+                       solver=None, solver_options={}):
 
     if not dict_dist:
         dict_dist = dict(all_pairs_dijkstra_path_length(g))
-    func = partial(compute_edge_curv, g=g, dist_global=dict_dist, alpha=alpha, mode=mode)
+    func = partial(compute_edge_curv, g=g, dist_global=dict_dist, alpha=alpha,
+                   mode=mode, solver=None, solver_options={})
 
     if not edges:
         edges = g.edges()
@@ -102,8 +104,8 @@ def compute_graph_curv(g, edges=None, dict_dist=None, alpha=0.0, n_processes=1, 
     else:
         curvs = array([func(x) for x in edges])
 
-    edges_curv_sorted = sorted(list(zip(edges, curvs)), key=lambda x: x[1])
-    return curvs
+    edges_curv_sorted = dict(zip(edges, curvs))
+    return edges_curv_sorted
 
 
 def compute_boundary(g, ddist):

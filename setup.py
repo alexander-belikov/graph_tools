@@ -13,7 +13,7 @@ def read(fname):
 
 setup(
     name="graph_tools",
-    version="0.0.2",
+    version="0.1",
     author="Alexander Belikov",
     author_email="abelikov@gmail.com",
     description="tools reducing bipartite graphs and applying ranking algorithms",
