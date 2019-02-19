@@ -114,7 +114,6 @@ def compute_node_be_curvature(g, n=None, solver=None, solver_options={}, verbose
             dgamma2 = construct_dgamma2(g, n, verbose)
             gammax = construct_gammax(g, n)
 
-            #extend dimension of gammax to b2
             dim_b1 = gammax.shape[0]
             dim_b2 = dgamma2.shape[0]
             dim_s2 = dgamma2.shape[0] - gammax.shape[0]

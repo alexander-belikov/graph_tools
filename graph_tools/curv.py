@@ -10,6 +10,7 @@ from functools import partial
 
 # networkx/cvxpy based implementation of Ollivier Ricci curvature calculation
 
+
 def compute_measure(g, x, x_nei, alpha, mode='weight'):
     """
     mode : 'weight' or 'freq'
