@@ -319,7 +319,7 @@ class GraphWrapper:
                                 solver=None, solver_options={}, verbose=False):
         agg = []
         cnt = 0
-        cnt_delta = 1000
+        cnt_delta = 100
         for j, gtmp in enumerate(self.graphs):
             print(f'component {j}: number of edges: {len(gtmp.es())}')
             gw_gtmp = GraphWrapper(gtmp, mode=self.mode, directed=self.directed,
