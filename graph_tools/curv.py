@@ -28,10 +28,10 @@ def compute_measure(g, x, x_nei, alpha, mode='weight'):
 
 
 def compute_edge_curv(edge, g, alpha=0.0, dist_global=None, mode=None,
-                      solver=None, solver_options={}, verbose=False):
+                      solver=None, solver_options={},
+                      distance_attribute=None,
+                      verbose=False):
     """
-    a weighted version inspired by https://github.com/saibalmars/GraphRicciCurvature
-
     :param edge:
     :param g:
     :param alpha:
@@ -64,7 +64,8 @@ def compute_edge_curv(edge, g, alpha=0.0, dist_global=None, mode=None,
     if dist_global:
         dist = array([[dist_global[xp][yp] for yp in y_nei_ext] for xp in x_nei_ext])
     else:
-        dist = array([[dijkstra_path_length(g, xp, yp) for yp in y_nei_ext] for xp in x_nei_ext])
+        dist = array([[dijkstra_path_length(g, xp, yp, weight=distance_attribute)
+                       for yp in y_nei_ext] for xp in x_nei_ext])
 
     mx = compute_measure(g, x, x_nei, alpha, mode)
     my = compute_measure(g, y, y_nei, alpha, mode)
@@ -72,6 +73,9 @@ def compute_edge_curv(edge, g, alpha=0.0, dist_global=None, mode=None,
     if verbose:
         print(mx.shape, my.shape, dist.shape)
         print(mx, my)
+
+    if verbose:
+        print(dist)
 
     plan = Variable((len(x_nei_ext), len(y_nei_ext)))
     mx_trans = mx.reshape(-1, 1)*dist
@@ -441,3 +445,141 @@ def reduce_graph_simple(gn, dists=None, edges_curv_sorted=None, alpha=0.0, n_pro
             return [gn]
     else:
         return [gn]
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from math import isinf, isnan
+from os.path import expanduser
+from cvxpy import Variable, Parameter, Minimize, Problem
+from cvxpy import multiply as cvx_mul
+from cvxpy import sum as cvx_sum
+from scipy.stats import beta, entropy, kstat, uniform
+up, dn, ps, pm, cexp = 'up', 'dn', 'pos', 'pmid', 'cdf_exp'
+
+
+
+def yield_kl_dist(a, n, grid, precomp_dict=None, pa=1, pb=1):
+    b = n - a
+    if (a, b) in precomp_dict.keys():
+        ent = precomp_dict[(a, b)]
+    else:
+        pk = beta(pa + a, pb + n - a).pdf
+        pk_ = np.array([pk(x) for x in grid])
+        ent = entropy(pk_, uniform)
+    if isnan(ent) or isinf(ent):
+        print(a, n, pa + a, pb + n - a, ent)
+    return ent
+
+
+def get_wdist(f1, f2, grid):
+    pk_ = np.array([f1(x) for x in grid])
+    qk_ = np.array([f2(x) for x in grid])
+    pk_ = pk_ / np.sum(pk_)
+    qk_ = qk_ / np.sum(qk_)
+    dist = np.zeros((pk_.size, qk_.size))
+    for i in range(dist.shape[0]):
+        for j in range(dist.shape[1]):
+            dist[i, j] = abs(i - j) / pk_.size
+    mx = pk_ / np.sum(pk_)
+    my = qk_ / np.sum(qk_)
+    plan = Variable((pk_.size, qk_.size))
+    mx_trans = mx.reshape(-1, 1) * dist
+    mu_trans_param = Parameter(mx_trans.shape, value=mx_trans)
+    obj = Minimize(cvx_sum(cvx_mul(plan, mu_trans_param)))
+    plan_i = cvx_sum(plan, axis=1)
+    my_constraint = mx * plan
+    constraints = [my_constraint == my,
+                   plan >= 0, plan <= 1,
+                   plan_i == np.ones(pk_.size)]
+    problem = Problem(obj, constraints)
+    solver = None
+    solver_options = {}
+    wd = problem.solve(solver=solver, **solver_options)
+    return wd
+
+
+def set_closest_max(x):
+    round_ind = int(np.log10(x) + 0.5) - 1
+    xm = x / 10 ** round_ind
+    x_up = round(xm + 0.5, 0)
+    delta = x_up / xm - 1
+    if delta < 0.2:
+        x_ans = x_up * 10 ** round_ind
+    else:
+        x_ans = (x_up - 0.5) * 10 ** round_ind
+    return x_ans
+
+
+def plot_thr_dt(df, fname=None):
+    fig = plt.figure(figsize=(8, 8))
+    rect = [0.15, 0.15, 0.75, 0.75]
+    ax = fig.add_axes(rect)
+
+    l1 = ax.plot(df.thr, df.ps, color='b', alpha=0.8)
+    l2 = ax.plot(df.thr, df.neg, color='g', alpha=0.8)
+    ax.set_ylabel('distance')
+    ax.set_xlabel('threshold')
+    ax2 = ax.twinx()
+    l3 = ax2.plot(df.thr, df.n_ps, color='b', alpha=0.8, linestyle=':')
+    l4 = ax2.plot(df.thr, df.n_neg, color='g', alpha=0.8, linestyle=':')
+    ax2.set_ylabel('number')
+
+    lns = l1 + l2 + l3 + l4
+    ax.legend(lns, ['positive to ambivalent', 'negative to ambivalent',
+                    'n positive', 'n negative'], loc='upper center')
+
+    ax_max = max([df.ps.max(), df.neg.max()])
+    ax_max2 = max([df.n_ps.max(), df.n_neg.max()])
+    ax.set_ylim([0, set_closest_max(ax_max)])
+    ax2.set_ylim([0, set_closest_max(ax_max2)])
+    if fname:
+        plt.savefig(fname)
+
+
+#     plt.close()
+
+def get_thr_study(df, delta=2e-3, max_thr=4e-1, verbose=False):
+    study = []
+    study2 = []
+    thrs = np.arange(delta, max_thr, delta)
+    for thr in thrs:
+        if verbose:
+            print('thr = {0:.3f}'.format(thr))
+        mask_ps = (df[cexp] > 1.0 - thr)
+        mask_neg = (df[cexp] < thr)
+        dist_ps = df.loc[mask_ps].groupby([up, dn]).apply(lambda x: pd.Series([x[ps].sum(), x.shape[0]],
+                                                                              index=['a', 's']))
+        dist_neg = df.loc[mask_neg].groupby([up, dn]).apply(lambda x: pd.Series([x[ps].sum(), x.shape[0]],
+                                                                                index=['a', 's']))
+        dist_ambi = df.loc[~(mask_ps | mask_neg)].groupby([up, dn]).apply(lambda x: pd.Series([x[ps].sum(),
+                                                                                               x.shape[0]],
+                                                                                              index=['a', 's']))
+
+        dfs = [dist_ps, dist_neg, dist_ambi]
+
+        data = [(df_.a.sum(), df_.s.sum()) for df_ in dfs]
+        study.append([thr, data])
+        study2.append([df_.values for df_ in dfs])
+
+    return study, study2
+
+
+def get_dists(beta_data, foo, gridn=100, verbose=False):
+    plot_data = []
+    delta = 1. / gridn
+    grid = np.arange(0.0, 1., delta)
+
+    for j, item in zip(range(len(beta_data)), beta_data):
+        thr, data = item
+        if verbose:
+            print('{0}/{1}'.format(j, len(beta_data)))
+        pdfs = [beta(a, n - a).pdf for a, n in data]
+        pos_foo, neg_foo, ambi_foo = pdfs
+        pos_ambi_dist = foo(pos_foo, ambi_foo, grid)
+        neg_ambi_dist = foo(neg_foo, ambi_foo, grid)
+        if verbose:
+            print('d (pos, ambi) = {0:.3f}; d (neg, ambi) = {1:.3f}'.format(pos_ambi_dist, neg_ambi_dist))
+        plot_data.append((thr, pos_ambi_dist, neg_ambi_dist))
+    return np.array(plot_data)
+
