@@ -4,6 +4,7 @@ import numpy as np
 from cvxpy import Variable, Parameter, Minimize, Problem
 from cvxpy import multiply as cvx_mul
 from cvxpy import sum as cvx_sum
+from cvxpy import MOSEK, SCS, CVXOPT, ECOS_BB
 
 
 def create_nx_graph(edges, edge_weights, directed=True):
@@ -60,6 +61,8 @@ class GraphWrapper:
         :param edge_attr_dist: attribute name to denote distance on edges (derived from counts) 
         :param vertex_attr_weight: 
         """
+
+        self.solvers = [SCS, MOSEK, CVXOPT, ECOS_BB]
         self.mode = mode
         self.directed = directed
         self.v_weight_attr = vertex_attr_weight
@@ -310,8 +313,25 @@ class GraphWrapper:
                        plan >= 0, plan <= 1,
                        plan_i == np.ones(len(nei_a))]
         problem = Problem(obj, constraints)
-        wd = problem.solve(solver=solver, **solver_options)
-        curv = 1. - wd/dist0[0, 0]
+        try:
+            wd = problem.solve(solver=solver, **solver_options)
+            curv = 1. - wd/dist0[0, 0]
+        except:
+            curv = 'failed'
+            print(f'failure: {vertex_a}: {nei_a} | {vertex_b} {nei_b}: solver options {solver} with {solver_options} failed')
+            solvers = list(self.solvers)
+            print(solvers)
+            while curv == 'failed' or solvers:
+                try:
+                    solver = solvers.pop()
+                    wd = problem.solve(solver=solver, **solver_options)
+                    curv = 1. - wd / dist0[0, 0]
+                    print(
+                        f'succeed: {vertex_a}: {nei_a} | {vertex_b} {nei_b}: solver options {solver} with {solver_options} {curv}')
+
+                except:
+                    print(
+                        f'failure: {vertex_a}: {nei_a} | {vertex_b} {nei_b}: solver options {solver} with {solver_options} failed')
         return curv
 
     def compute_curv_components(self, direction=None, alpha=0.0, vertex_weight=None,

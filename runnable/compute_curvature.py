@@ -1,6 +1,6 @@
 import numpy as np
 from graph_tools.gwrapper import GraphWrapper
-from graph_tools.gwrapper import create_ig_graph, create_nx_graph   
+from graph_tools.gwrapper import create_ig_graph, create_nx_graph
 import pandas as pd
 from os.path import expanduser
 
@@ -19,7 +19,7 @@ else:
     print(sum(mask))
     df0 = df0.loc[~mask].copy()
     print(df0.head())
-    df0 = df0.head(1000)
+    df0 = df0.head(10000)
     edges = df0[[va, vb]].values
     edge_weights = df0['count'].values
 
