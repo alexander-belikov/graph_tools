@@ -318,20 +318,31 @@ class GraphWrapper:
             curv = 1. - wd/dist0[0, 0]
         except:
             curv = 'failed'
-            print(f'failure: {vertex_a}: {nei_a} | {vertex_b} {nei_b}: solver options {solver} with {solver_options} failed')
+            print(
+                f'fail: '
+                f'va: {vertex_a} : {nei_a} \n'
+                f'vb: {vertex_b} : {nei_b}\n'
+                f'solver options: {solver} with {solver_options}; val = {curv}')
             solvers = list(self.solvers)
             print(solvers)
-            while curv == 'failed' or solvers:
+            while curv == 'failed' and solvers:
+
                 try:
                     solver = solvers.pop()
                     wd = problem.solve(solver=solver, **solver_options)
                     curv = 1. - wd / dist0[0, 0]
                     print(
-                        f'succeed: {vertex_a}: {nei_a} | {vertex_b} {nei_b}: solver options {solver} with {solver_options} {curv}')
+                        f'succeed: '
+                        f'va: {vertex_a} : {nei_a} \n'
+                        f'vb: {vertex_b} : {nei_b}\n'
+                        f'solver options: {solver} with {solver_options}; val = {curv}')
 
                 except:
                     print(
-                        f'failure: {vertex_a}: {nei_a} | {vertex_b} {nei_b}: solver options {solver} with {solver_options} failed')
+                        f'fail: '
+                        f'va: {vertex_a} : {nei_a} \n'
+                        f'vb: {vertex_b} : {nei_b}\n'
+                        f'solver options: {solver} with {solver_options}; val = {curv}')
         return curv
 
     def compute_curv_components(self, direction=None, alpha=0.0, vertex_weight=None,
