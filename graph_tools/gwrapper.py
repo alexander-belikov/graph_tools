@@ -4,6 +4,7 @@ import numpy as np
 from cvxpy import Variable, Parameter, Minimize, Problem
 from cvxpy import multiply as cvx_mul
 from cvxpy import sum as cvx_sum
+import multiprocessing as mp
 from cvxpy import MOSEK, SCS, CVXOPT, ECOS_BB
 
 
@@ -68,6 +69,8 @@ class GraphWrapper:
         self.v_weight_attr = vertex_attr_weight
         self.v_weight_attr_in = vertex_attr_weight + '_IN'
         self.v_weight_attr_out = vertex_attr_weight + '_OUT'
+        self.count_col = edge_attr_count
+        self.dist_col = edge_attr_dist
 
         self.v_weights = [self.v_weight_attr, self.v_weight_attr_in, self.v_weight_attr_out]
         self.dirs = ['IN', 'OUT', 'ALL']
@@ -87,10 +90,14 @@ class GraphWrapper:
 
         self.graphs = []
 
+        if edge_attr_count is None and edge_attr_dist is None:
+            for k in self.g.es.attribute_names():
+                del (self.g.es[k])
+
         if mode == 'ig':
+            print(edge_attr_count, edge_attr_dist)
             if edge_attr_count in g.es.attribute_names():
-                self.count_col = edge_attr_count
-                self.dist_col = edge_attr_dist
+
                 # NB: undirected to directed cast messes up the edges
                 if not directed and g.is_directed():
                     for e in self.g.es:
@@ -112,23 +119,20 @@ class GraphWrapper:
             else:
                 self.count_col = None
         elif mode == 'nx':
-            if all([edge_attr_count in props for a, b, props in self.g.edges(data=True)]):
-                self.count_col = edge_attr_count
-                self.dist_col = edge_attr_dist
-            for e in self.g.edges(data=True):
-                if e[-1][self.count_col] > 0:
-                    e[-1][self.dist_col] = 1. / e[-1][self.count_col]
-                else:
-                    raise ValueError('Count weight should be positive')
-                if self.directed:
-                    for ii, props in self.g.nodes(data=True):
-                        props[self.v_weight_attr_in] = sum([x[-1][self.count_col] for x in self.g.in_edges(ii, data=True)])
-                        props[self.v_weight_attr_out] = sum([x[-1][self.count_col] for x in self.g.out_edges(ii, data=True)])
-                        props[self.v_weight_attr] = props[self.v_weight_attr_out] + props[self.v_weight_attr_in]
-                else:
-                    for ii, props in self.g.nodes(data=True):
-                        props[self.v_weight_attr_in] = sum([x[-1][self.count_col] for x in self.g.edges(ii, data=True)])
-            pass
+            if self.count_col in self.g.edges(data=True):
+                for e in self.g.edges(data=True):
+                    if e[-1][self.count_col] > 0:
+                        e[-1][self.dist_col] = 1. / e[-1][self.count_col]
+                    else:
+                        raise ValueError('Count weight should be positive')
+                    if self.directed:
+                        for ii, props in self.g.nodes(data=True):
+                            props[self.v_weight_attr_in] = sum([x[-1][self.count_col] for x in self.g.in_edges(ii, data=True)])
+                            props[self.v_weight_attr_out] = sum([x[-1][self.count_col] for x in self.g.out_edges(ii, data=True)])
+                            props[self.v_weight_attr] = props[self.v_weight_attr_out] + props[self.v_weight_attr_in]
+                    else:
+                        for ii, props in self.g.nodes(data=True):
+                            props[self.v_weight_attr_in] = sum([x[-1][self.count_col] for x in self.g.edges(ii, data=True)])
         else:
             raise NotImplemented(f'mode {mode} not implemented')
 
@@ -261,12 +265,34 @@ class GraphWrapper:
         if verbose:
             print(f'found {len(self.graphs)} {how} components')
 
+    def compute_edges_curv(self, edges,
+                           direction=None, alpha=0.0,
+                           vertex_weight=None, measure_dir=None,
+                           dist_dir='OUT', weighted_distance=False,
+                           solver=None, solver_options={},
+                           output=None, verbose=False):
+
+        agg = []
+        g = self.g
+        for e in edges:
+            u, v = e.source, e.target
+            curv = self.compute_edge_curv(u, v,
+                                          direction, alpha,
+                                          vertex_weight, measure_dir,
+                                          dist_dir, weighted_distance,
+                                          solver, solver_options, verbose)
+            agg += [(g.vs[u]['name0'], g.vs[v]['name0'], curv)]
+        output.put(agg)
+
     def compute_edge_curv(self, vertex_a, vertex_b,
                           direction=None, alpha=0.0,
                           vertex_weight=None, measure_dir=None,
                           dist_dir='OUT', weighted_distance=False,
                           solver=None, solver_options={}, verbose=False):
         """
+
+        NB:  dist_dir='OUT', weighted_distance=False are very important
+
         :param vertex_a:
         :param vertex_b:
         :param direction:
@@ -347,7 +373,7 @@ class GraphWrapper:
 
     def compute_curv_components(self, direction=None, alpha=0.0, vertex_weight=None,
                                 measure_dir=None, dist_dir='OUT', weighted_distance=False,
-                                solver=None, solver_options={}, verbose=False):
+                                solver=None, solver_options={}, n_tasks=4, verbose=False):
         agg = []
         cnt = 0
         cnt_delta = 100
@@ -367,17 +393,44 @@ class GraphWrapper:
                     agg += [(gtmp.nodes[u]['name0'], gtmp.nodes[v]['name0'], curv)]
                     cnt += 1
                     if cnt % cnt_delta == 0:
-                        print(f'{cnt} edges processessed...')
+                        print(f'{cnt} edges processed...')
             elif self.mode == 'ig':
-                for e in gtmp.es():
-                    u, v = e.source, e. target
-                    curv = gw_gtmp.compute_edge_curv(u, v,
-                                                     direction, alpha,
-                                                     vertex_weight, measure_dir,
-                                                     dist_dir, weighted_distance,
-                                                     solver, solver_options, verbose)
-                    agg += [(gtmp.vs[u]['name0'], gtmp.vs[v]['name0'], curv)]
-                    cnt += 1
-                    if cnt % cnt_delta == 0:
-                        print(f'{cnt} edges processessed...')
+                if gtmp.ecount() > 100 and n_tasks:
+                    edges = list(gtmp.es())
+                    delta = int(np.ceil(len(edges) / n_tasks))
+                    iis = np.arange(0, len(edges) + delta, delta)
+                    edges_lists = [edges[i:j] for i, j in zip(iis, iis[1:])]
+                    kwargs = {
+                        'direction': direction,
+                        'alpha': alpha,
+                        'vertex_weight': vertex_weight,
+                        'measure_dir': measure_dir,
+                        'dist_dir': dist_dir,
+                        'weighted_distance': weighted_distance,
+                        'solver': solver,
+                        'solver_options': solver_options,
+                        'verbose': verbose,
+                    }
+
+                    pool = mp.Pool(processes=n_tasks)
+
+                    results = [pool.apply_async(gw_gtmp.compute_edge_curv,
+                                            kwds={**{'vertex_a': e.source,
+                                                     'vertex_b': e.target},
+                                                  **kwargs})
+                               for e in edges]
+                    output = [p.get() for p in results]
+                    agg = [(gtmp.vs[e.source]['name0'], gtmp.vs[e.target]['name0'], curv) for e, curv in zip(edges, output)]
+                else:
+                    for e in gtmp.es():
+                        u, v = e.source, e.target
+                        curv = gw_gtmp.compute_edge_curv(u, v,
+                                                         direction, alpha,
+                                                         vertex_weight, measure_dir,
+                                                         dist_dir, weighted_distance,
+                                                         solver, solver_options, verbose)
+                        agg += [(gtmp.vs[u]['name0'], gtmp.vs[v]['name0'], curv)]
+                        cnt += 1
+                        if cnt % cnt_delta == 0:
+                            print(f'{cnt} edges processessed...')
         return agg
